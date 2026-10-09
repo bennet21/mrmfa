@@ -5,9 +5,11 @@
 #' @author Bennet Weiss
 calcCeProductApplicationSplit <- function() {
   concrete <- readSource("Cao2024", subtype = "concrete_application_split")
-  concrete <- toolCeNormalize(toolCeDistributionMean(concrete, "Weibull"), dim = "Product Application")
+  concrete <- toolCeDistributionMean(concrete, "Weibull")
+  concrete <- concrete / dimSums(concrete, dim = "Product Application")
   mortar <- readSource("Cao2024", subtype = "mortar_application_split")
-  mortar <- toolCeNormalize(toolCeDistributionMean(mortar, "Weibull"), dim = "Product Application")
+  mortar <- toolCeDistributionMean(mortar, "Weibull")
+  mortar <- mortar / dimSums(mortar, dim = "Product Application")
   x <- mbind(concrete, mortar)
 
   weight <- toolCeCumulativeCementProduction(castto = x)

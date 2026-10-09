@@ -4,7 +4,7 @@
 calcCeProductMaterialSplit <- function() {
   x <- readSource("Cao2024", subtype = "material_split")
   x <- toolCeDistributionMean(x, "Weibull")
-  x <- toolCeNormalize(x, dim = "Product Material")
+  x <- x / dimSums(x, dim = "Product Material")
 
   weight <- toolCeCumulativeCementProduction(x)
 

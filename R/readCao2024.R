@@ -129,47 +129,46 @@ readCao2024 <- function(subtype) {
   if (is.null(spec)) {
     stop("Subtype ", subtype, " not implemented.")
   }
+  # parameter names in column order; taken from the distribution unless the spec overrides them
   parameters <- if (is.null(spec$parameters)) toolCeDistributionParameters(spec$distribution) else spec$parameters
-  dim <- if (is.null(spec$dim)) "variable" else spec$dim
+  # name(s) of the data subdimension(s) holding the items
+  item_dims <- if (is.null(spec$dim)) "variable" else spec$dim
 
   # rows 3-12 of the sheet contain the regions, rows 1-2 the headers
+  # col_types = "list" keeps the type of each cell: text for regions and distribution labels, numeric otherwise
   path <- file.path("v1", "data_cement_GAS_EoL_MISO_9regions.xlsx")
-  regions <- readxl::read_xlsx(path, sheet = "Uptake", range = "A3:A12", col_names = "region")[["region"]]
-  labels <- readxl::read_xlsx(path, sheet = "Uptake", range = "A3:GB12", col_names = FALSE, col_types = "text")
-  values <- suppressWarnings(
-    readxl::read_xlsx(path, sheet = "Uptake", range = "A3:GB12", col_names = FALSE, col_types = "numeric")
+  sheet <- readxl::read_xlsx(
+    path,
+    sheet = "Uptake", range = "A3:GB12", col_names = FALSE, col_types = "list", .name_repair = "minimal"
   )
+  # first column holds the region names
+  regions <- unlist(sheet[[1]])
 
-  column_index <- function(letters) {
-    digits <- utf8ToInt(letters) - utf8ToInt("A") + 1
-    sum(digits * 26^rev(seq_along(digits) - 1))
-  }
-
+  # collect one long-format chunk (region, item, parameter, value) per item and parameter
   chunks <- list()
   for (item in names(spec$columns)) {
-    start <- column_index(spec$columns[[item]])
+    # Excel column letter -> column index in the sheet
+    start <- cellranger::letter_to_num(spec$columns[[item]])
     if (!is.null(spec$distribution)) {
-      if (!all(labels[[start]] == spec$distribution)) {
+      # the first column holds the distribution label; check it, then move on to the parameters
+      if (!identical(unlist(sheet[[start]]), rep(spec$distribution, length(regions)))) {
         stop("Expected distribution ", spec$distribution, " in column ", spec$columns[[item]], " for ", item, ".")
       }
       start <- start + 1
     }
+    # parameters follow in consecutive columns
     for (i in seq_along(parameters)) {
-      chunks[[length(chunks) + 1]] <- data.frame(
-        region = regions,
-        item = item,
-        parameter = parameters[[i]],
-        value = values[[start + i - 1]],
-        check.names = FALSE
-      )
+      values <- unlist(sheet[[start + i - 1]])
+      if (!is.numeric(values) || length(values) != length(regions) || anyNA(values)) {
+        stop("Non-numeric or missing value for parameter ", parameters[[i]], " of ", item, " (subtype ", subtype, ").")
+      }
+      chunks[[length(chunks) + 1]] <- data.frame(region = regions, item = item, parameter = parameters[[i]], value = values)
     }
   }
-  data <- do.call(rbind, chunks)
-  # split multi-dimensional items ("new concrete.A") into one column per dimension
-  item_parts <- do.call(rbind, strsplit(data$item, ".", fixed = TRUE))
-  colnames(item_parts) <- dim
-  data <- cbind(data["region"], as.data.frame(item_parts, check.names = FALSE), data[c("parameter", "value")])
+  # stack the chunks and split multi-dimensional items ("new concrete.A") into one column per dimension
+  data <- tidyr::separate_wider_delim(do.call(rbind, chunks), "item", delim = ".", names = item_dims)
 
+  # regions become the spatial dimension; item(s) and parameter become data subdimensions
   x <- as.magpie(data, spatial = "region", datacol = "value")
   return(x)
 }

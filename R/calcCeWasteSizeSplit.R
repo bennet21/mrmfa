@@ -5,7 +5,7 @@
 calcCeWasteSizeSplit <- function() {
   x <- readSource("Cao2024", subtype = "waste_size_split")
   x <- toolCeDistributionMean(x, "Uniform")
-  x <- toolCeNormalize(x, dim = "Particle Size")
+  x <- x / dimSums(x, dim = "Particle Size")
 
   weight <- toolCeCumulativeCementProduction(castto = x)
   unit <- "ratio"

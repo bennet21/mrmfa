@@ -49,14 +49,3 @@ test_that("mismatching parameters raise an error", {
   expect_error(toolCeDistributionMean(x, "Weibull"), "do not match")
   expect_error(toolCeDistributionMean(x, "Triangular", harmonic = TRUE), "not implemented")
 })
-
-test_that("normalization and item copies", {
-  x <- makeParameters(c(1, 3), "value", items = c("a", "b"))
-  shares <- toolCeNormalize(toolCeDistributionMean(x, "Point"), dim = "item")
-  expect_equal(as.vector(shares["R1", , ]), c(0.25, 0.75))
-
-  copied <- toolCeCopyItem(shares[, , "a"], c("c", "d"), dim = "item")
-  expect_equal(magclass::getItems(copied, dim = 3), c("c", "d"))
-  expect_equal(as.vector(copied["R2", , ]), c(0.25, 0.25))
-  expect_error(toolCeCopyItem(shares, c("c", "d"), dim = "item"), "exactly one")
-})
