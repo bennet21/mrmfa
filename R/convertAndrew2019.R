@@ -7,7 +7,7 @@ convertAndrew2019 <- function(x) {
 
   x["SRB", , ] <- x["SRB", , ] + toolNAreplace(x["KSV", , ])$x
 
-  x <- madrat::toolISOhistorical(x, additional_mapping = list())
+  x <- madrat::toolISOhistorical(x)
   x <- madrat::toolCountryFill(x, fill = NA, verbosity = 2, no_remove_warning = no_remove_warning)
   return(x)
 }
