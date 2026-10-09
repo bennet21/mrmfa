@@ -2,7 +2,7 @@
 #' @author Bennet Weiss
 calcCeBuiltLifespan <- function() {
   # Prepare data to have same dimensions as main driver cement production
-  weight <- calcOutput("CeBinderProduction", subtype = "cement", aggregate = FALSE)
+  weight <- calcOutput("CeCementProduction", aggregate = FALSE)
   data <- readSource("PostedBuiltLifespan")[, getItems(weight, dim = 2), ]
   weight <- magpie_expand(weight, data)
   weight[weight == 0] <- 1e-9

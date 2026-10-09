@@ -84,7 +84,7 @@ calcCeTrade <- function(subtype, category, HS = "92", target_years = NULL) {
   # Note: reference has region-specific units.
 
   # cement production data as base reference
-  production_reference <- calcOutput("CeBinderProduction", subtype = "cement", aggregate = FALSE, years = target_years)
+  production_reference <- calcOutput("CeCementProduction", aggregate = FALSE, years = target_years)
   reference <- production_reference
   target_years <- getYears(production_reference, as.integer = TRUE)
 
