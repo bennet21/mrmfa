@@ -51,8 +51,7 @@ readGlobalExposureModel <- function() {
       data$Structure <- data$MACRO_TAXONOMY
       data <- toolSplitHybridClasses(data)
 
-      # aggregate floor space. SETTLEMENT (URBAN, RURAL, TOTAL, ...) is not read, so all settlement rows are summed.
-      # This is correct: rows are disjoint, also for China, where TOTAL, URBAN and RURAL rows coexist.
+      # aggregate floor space
       aggregated_data <- dplyr::group_by(data, .data$ID_0, .data$OCCUPANCY, .data$Structure, .data$FUNCTION) %>%
         dplyr::summarise(TOTALAREA_SQM = sum(.data$TOTAL_AREA_SQM), .groups = "drop")
 
