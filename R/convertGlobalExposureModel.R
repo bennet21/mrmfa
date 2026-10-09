@@ -4,6 +4,7 @@
 #' @param x Magpie object
 convertGlobalExposureModel <- function(x) {
   x <- replace_non_finite(x, replace = 0)
+  totalAreaBefore <- sum(x)
 
   structureMapping <- toolGetMapping("CeBuildingStructureMapping.csv", type = "sectoral", where = "mrmfa")
   x <- toolAggregate(
@@ -13,6 +14,9 @@ convertGlobalExposureModel <- function(x) {
     from = "GEM_structure",
     to = "RASMI_structure",
   )
+  if (abs(sum(x) - totalAreaBefore) > 1e-6 * totalAreaBefore) {
+    stop("Floor area changed in structure mapping: ", totalAreaBefore, " -> ", sum(x))
+  }
 
   x["SRB", ] <- x["SRB", ] + toolNAreplace(x["XKX", ])$x # add Kosovo to Serbia
   x_out <- madrat::toolCountryFill(x, verbosity = 2, no_remove_warning = "XKX")

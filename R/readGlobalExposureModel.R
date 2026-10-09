@@ -1,47 +1,59 @@
 #' Read structure type, function type, height, and total floor area of buildings from the Global Exposure Model (GEM).
 #' Extract residential building type (single RS/multi family RM) from building height proxy.
 #'
+#' Release v2026.0.0 (GEM Taxonomy v4.0, building counts and population of 2025).
 #' Yepes-Estrada, C., Calderon, A., Costa, C., Crowley, H., Dabbeek, J., Hoyos,
 #' M., Martins, L., Paul, N., Rao, A., Silva, V. (2023).
 #' Global Building Exposure Model for Earthquake Risk Assessment. Earthquake Spectra. doi:10.1177/87552930231194048
-#' Repository on: https://zenodo.org/records/8223926
 #' Available on Github: https://github.com/gem/global_exposure_model
 #' @author Bennet Weiss.
 readGlobalExposureModel <- function() {
   # issues with this approach:
   # - I am omitting Mixed or unspecified housing types at the beginning, which may lead to errors.
 
-  version <- "v2023.1.1"
+  version <- "v2026.0.0"
   regions <- list.dirs(path = version, full.names = TRUE, recursive = FALSE)
   regions <- regions[basename(regions) != "World"]
+  # GEM uses upper case occupancy classes. NONRES (only New Zealand) has no split into commercial and industrial
+  # and is counted as commercial.
+  occupancyNames <- c(COM = "Com", IND = "Ind", RES = "Res", NONRES = "Com")
   all_data <- list()
 
   i <- 1
   for (region in regions) {
     countries <- list.dirs(path = region, full.names = TRUE, recursive = FALSE)
-    countries <- countries[basename(countries) != "_Metadata"]
+    countries <- countries[basename(countries) != "_region"]
     for (country in countries) {
       # read country data
-      path <- file.path(country, "Exposure_Summary_Taxonomy.csv")
+      path <- file.path(country, "summaries", "Exposure_Summary_Taxonomy.csv")
+      if (!file.exists(path)) {
+        stop("GEM summary file not found: ", path)
+      }
       data <- readr::read_csv(
         path,
         col_names = TRUE,
-        col_select = c("ID_0", "OCCUPANCY", "MACRO_TAXO", "TAXONOMY", "TOTAL_AREA_SQM"),
+        col_select = c("ID_0", "OCCUPANCY", "MACRO_TAXONOMY", "TAXONOMY", "TOTAL_AREA_SQM"),
         show_col_types = FALSE
       )
+      stopifnot("Unknown GEM occupancy" = data$OCCUPANCY %in% names(occupancyNames))
+      data$OCCUPANCY <- unname(occupancyNames[data$OCCUPANCY])
 
       # extract building function type from taxonomy
       data["FUNCTION"] <- toolInferResBuildingType(data)
 
-      # remove taxonomy column and rows with unknown function type
-      data <- data[, -which(names(data) == "TAXONOMY")]
+      # remove rows with unknown function type
       data <- data[!is.na(data$FUNCTION), ]
 
       # remove rows with unknown area
       data <- data[!is.na(data$TOTAL_AREA_SQM), ]
 
-      # aggregate floor space
-      aggregated_data <- dplyr::group_by(data, .data$ID_0, .data$OCCUPANCY, .data$MACRO_TAXO, .data$FUNCTION) %>%
+      # structure is the GEM macro taxonomy. Hybrid classes are split into their materials.
+      data$Structure <- data$MACRO_TAXONOMY
+      data <- toolSplitHybridClasses(data)
+
+      # aggregate floor space. SETTLEMENT (URBAN, RURAL, TOTAL, ...) is not read, so all settlement rows are summed.
+      # This is correct: rows are disjoint, also for China, where TOTAL, URBAN and RURAL rows coexist.
+      aggregated_data <- dplyr::group_by(data, .data$ID_0, .data$OCCUPANCY, .data$Structure, .data$FUNCTION) %>%
         dplyr::summarise(TOTALAREA_SQM = sum(.data$TOTAL_AREA_SQM), .groups = "drop")
 
       all_data[[i]] <- aggregated_data
@@ -50,10 +62,6 @@ readGlobalExposureModel <- function() {
   }
   combined_data <- do.call(rbind, all_data)
   colnames(combined_data) <- c("ISO3", "Stock_Type", "Structure", "Function", "Total Area (sqm)")
-
-  # fix for NZL: sort NonRes to Com for Stock_Type and Function
-  combined_data$Stock_Type[combined_data$Stock_Type == "NonRes"] <- "Com"
-  combined_data$Function[combined_data$Function == "NonRes"] <- "Com"
 
   x <- magclass::as.magpie(combined_data, spatial = 1)
 
@@ -80,17 +88,22 @@ toolExtractNStories <- function(taxonomy) {
   remove_pattern <- "^[^0-9]*([0-9][-+0-9]*).*"
   n_stories[has_match] <- sub(remove_pattern, "\\1", matches)
 
+  # Open-ended height classes (e.g. H:>8) mean more than N stories, use N + 1.
+  open_ended <- grepl("H:>[0-9]+", taxonomy)
+  n_stories[open_ended] <- as.character(as.integer(sub(".*H:>([0-9]+).*", "\\1", taxonomy[open_ended])) + 1L)
+  has_match <- has_match | open_ended
+
   # Fallback: try Res information
   # implicitly set RES number to storey number.
   # As RES1 is SF and RES2 is mobile home, they can both reasonably be grouped as SF later.
   no_match <- !has_match
   if (any(no_match)) {
     # Pattern to match: Res followed by a number
-    pattern_RES <- "RES([0-9]+)"
+    pattern_RES <- "RES:?([0-9]+)"
     m_RES <- regexpr(pattern_RES, taxonomy[no_match], perl = TRUE)
     matches_RES <- regmatches(taxonomy[no_match], m_RES)
     has_RES <- m_RES != -1
-    n_stories[no_match][has_RES] <- sub("RES", "", matches_RES[has_RES])
+    n_stories[no_match][has_RES] <- sub("RES:?", "", matches_RES[has_RES])
     no_match[no_match][has_RES] <- FALSE
   }
 

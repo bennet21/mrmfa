@@ -1,11 +1,10 @@
 GEM_structure,RASMI_structure,Description
 S,S,Steel
-W,T,Wood
-RC,C,Reinforced Concrete
-M,M,Masonry
-MUR,M,Unreinforced Masonry
-MR,M,Reinforced Masonry
-MCF,M,Confined Masonry
-ADO/E,U,Adobe/Earth
-MIX,M,Mixed-types
-OT,U,Other
+W,T,"Wood, bamboo, wattle-and-daub"
+CR+,C,Reinforced concrete with building code compliance
+CR-,C,Reinforced concrete with limited or no building code compliance
+CR,C,Reinforced concrete (only as component of a hybrid class)
+MUR,M,Unreinforced masonry (brick and block; also generic masonry component of a hybrid class)
+MR|MCF,M,Reinforced and confined masonry
+ADO|ST|E,U,"Adobe, stone masonry and earthen construction. DEVIATES FROM RASMI, which counts adobe and stone as masonry (S.4): these buildings contain little or no concrete (estimate 0 to 0.1 m3/m2 against about 0.5 for masonry with concrete slabs), so they get no material intensity (U)"
+OT,U,"Other: unspecified, informal, mobile, metal. Matches RASMI S.5 unspecified structure"
