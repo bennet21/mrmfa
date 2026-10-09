@@ -25,13 +25,13 @@ calcCeCementProduction <- function() {
     }
   }
 
-  # TODO I should  base this on global available cement intensity, not just US
-  # Backcast missing data in early 20th century using regional GDP and US cement intensity
+  # Backcast missing data in the early historical period using global cement intensity (cement production per GDP)
   gdp <- calcOutput("CoGDP", years = getYears(x), aggregate = FALSE)
-  # Complete data available for US: t cement production per unit of GDP
-  us_cement_intensity <- x["USA", ] / gdp["USA", ]
-  getItems(us_cement_intensity, dim = 1) <- "GLO"
-  reference_cement_production <- us_cement_intensity * gdp
+  gdp_with_data <- gdp
+  gdp_with_data[is.na(x)] <- 0
+  global_cement_intensity <- dimSums(x, dim = 1, na.rm = TRUE) / dimSums(gdp_with_data , dim = 1)
+  getItems(global_cement_intensity, dim = 1) <- "GLO"
+  reference_cement_production <- global_cement_intensity * gdp
   x <- toolBackcastByReference(x, reference_cement_production)
 
   # Apply threshold again after backcasting
